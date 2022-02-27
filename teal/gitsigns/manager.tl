@@ -6,7 +6,6 @@ local CacheEntry = gs_cache.CacheEntry
 local cache = gs_cache.cache
 
 local signs             = require('gitsigns.signs')
-local Sign              = signs.Sign
 
 local Status            = require("gitsigns.status")
 
@@ -30,7 +29,7 @@ local api = vim.api
 local record M
   update           : function(integer, CacheEntry)
   update_debounced : function(integer, CacheEntry)
-  apply_win_signs  : function(bufnr: integer, pending: {integer:Sign}, top: integer, bot: integer)
+  apply_win_signs  : function(bufnr: integer, {Hunk}, top: integer, bot: integer)
   on_lines         : function(buf: integer, last_orig: integer, last_new: integer): boolean
 
   apply_word_diff: function(buf: integer, row: integer)
@@ -49,7 +48,7 @@ end
 
 local scheduler_if_buf_valid = awrap(schedule_if_buf_valid, 2)
 
-function M.apply_win_signs(bufnr: integer, pending: {integer:Sign}, top: integer, bot: integer)
+function M.apply_win_signs(bufnr: integer, hunks: {Hunk}, top: integer, bot: integer)
   -- If called without top or bot, then assume this is the first call after
   -- clearing all the signs
   local first_apply = top == nil
@@ -58,30 +57,22 @@ function M.apply_win_signs(bufnr: integer, pending: {integer:Sign}, top: integer
   top = top or vim.fn.line('w0')
   bot = bot or vim.fn.line('w$')
 
-  local scheduled: {integer:Sign} = {}
-
-  local function schedule_sign(n: integer, _: any)
-    if n and pending[n] then
-      scheduled[n] = pending[n]
-      pending[n] = nil
-    end
-  end
-
-  for lnum = top, bot do
-    schedule_sign(lnum)
-  end
-
   if first_apply then
     signs.remove(bufnr)  -- Remove all signs
-
-    -- To stop the sign column width changing too much, if there are signs to be
-    -- added but none of them are visible in the window, then make sure to add at
-    -- least one sign. Only do this on the first call after an update when we all
-    -- the signs have been cleared.
-    schedule_sign(next(pending))
   end
 
-  signs.add(config, bufnr, scheduled)
+  -- To stop the sign column width changing too much, if there are signs to be
+  -- added but none of them are visible in the window, then make sure to add at
+  -- least one sign. Only do this on the first call after an update when we all
+  -- the signs have been cleared.
+
+  for i, hunk in ipairs(hunks or {}) do
+    if first_apply and i == 1
+        or top <= hunk.vend and bot >= hunk.start then
+      signs.add(config, bufnr, gs_hunks.calc_signs(hunk))
+      table.remove(hunks, i)
+    end
+  end
 
 end
 
@@ -99,26 +90,26 @@ local function speculate_signs(buf: integer, last_orig: integer, last_new: integ
     -- Lines added
 
     if last_orig == 0 then
-      local placed = signs.get(buf, 1)[1]
+      local placed = signs.get(buf, 1)
 
       -- Add 'added' signs only if there wasn't a 'delete' sign above
       if not placed or not vim.startswith(placed, 'GitSignsTopDelete') then
         -- If lines are added, make sure to immediately add the signs
         for i = 1, last_new do
-          signs.add(config, buf, {[i] = {type='add', count=0}})
+          signs.add(config, buf, {{type='add', count=0, lnum=i}})
         end
       else
         signs.remove(buf, 1)
       end
       return true
     else
-      local placed = signs.get(buf, last_orig)[last_orig]
+      local placed = signs.get(buf, last_orig)
 
       -- Add 'added' signs only if there wasn't a 'delete' sign above
       if not placed or not vim.startswith(placed, 'GitSignsDelete') then
         -- If lines are added, make sure to immediately add the signs
         for i = last_orig+1, last_new do
-          signs.add(config, buf, {[i] = {type='add', count=0}})
+          signs.add(config, buf, {{type='add', count=0, lnum=i}})
         end
         return true
       end
@@ -126,11 +117,11 @@ local function speculate_signs(buf: integer, last_orig: integer, last_new: integ
   else
     -- Line change
 
-    local placed = signs.get(buf, last_orig)[last_orig]
+    local placed = signs.get(buf, last_orig)
 
     -- add a 'change' sign if there are no other signs
     if not placed then
-      signs.add(config, buf, {[last_orig] = {type='change', count=0}})
+      signs.add(config, buf, {{type='change', count=0, lnum=last_orig}})
       return true
     end
   end
@@ -323,11 +314,11 @@ local update0 = function(bufnr: integer, bcache: CacheEntry)
 
   scheduler_if_buf_valid(bufnr)
   if gs_hunks.compare_heads(bcache.hunks, old_hunks) then
-    bcache.pending_signs = gs_hunks.process_hunks(bcache.hunks)
+    bcache.pending_hunks = util.copy_array(bcache.hunks)
 
     -- Apply signs to the window. Other signs will be added by the decoration
     -- provider as they are drawn.
-    M.apply_win_signs(bufnr, bcache.pending_signs)
+    M.apply_win_signs(bufnr, bcache.pending_hunks)
 
     show_deleted(bufnr)
   end

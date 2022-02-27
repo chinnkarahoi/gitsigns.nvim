@@ -1,6 +1,9 @@
+local fn = vim.fn
+
 local Config = require('gitsigns.config').Config
 
 local M = {Sign = {}, }
+
 
 
 
@@ -35,11 +38,22 @@ M.sign_map = {
 
 local ns = 'gitsigns_ns'
 
+
+
+
+
+
+
+
+
+
+local placed = {}
+
 local sign_define_cache = {}
 
 local function sign_get(name)
    if not sign_define_cache[name] then
-      local s = vim.fn.sign_getdefined(name)
+      local s = fn.sign_getdefined(name)
       if not vim.tbl_isempty(s) then
          sign_define_cache[name] = s
       end
@@ -50,15 +64,20 @@ end
 function M.define(name, opts, redefine)
    if redefine then
       sign_define_cache[name] = nil
-      vim.fn.sign_undefine(name)
-      vim.fn.sign_define(name, opts)
+      fn.sign_undefine(name)
+      fn.sign_define(name, opts)
    elseif not sign_get(name) then
-      vim.fn.sign_define(name, opts)
+      fn.sign_define(name, opts)
    end
 end
 
 function M.remove(bufnr, lnum)
-   vim.fn.sign_unplace(ns, { buffer = bufnr, id = lnum })
+   if lnum then
+      placed[bufnr][lnum] = nil
+   else
+      placed[bufnr] = nil
+   end
+   fn.sign_unplace(ns, { buffer = bufnr, id = lnum })
 end
 
 function M.add(cfg, bufnr, signs)
@@ -66,8 +85,19 @@ function M.add(cfg, bufnr, signs)
 
       return
    end
+   placed[bufnr] = placed[bufnr] or {}
+
+   local fsigns = {}
+   for _, s in ipairs(signs) do
+      if not placed[bufnr][s.lnum] or placed[bufnr][s.lnum].type ~= s.type then
+         fsigns[#fsigns + 1] = s
+      end
+   end
+   signs = fsigns
+
    local to_place = {}
-   for lnum, s in pairs(signs) do
+   for _, s in ipairs(signs) do
+      placed[bufnr][s.lnum] = s
       local stype = M.sign_map[s.type]
       local count = s.count
 
@@ -86,26 +116,22 @@ function M.add(cfg, bufnr, signs)
       end
 
       to_place[#to_place + 1] = {
-         id = lnum,
+         id = s.lnum,
          group = ns,
          name = stype,
          buffer = bufnr,
-         lnum = lnum,
+         lnum = s.lnum,
          priority = cfg.sign_priority,
       }
    end
-   vim.fn.sign_placelist(to_place)
+   fn.sign_placelist(to_place)
 end
 
 
 
 function M.get(bufnr, lnum)
-   local placed = vim.fn.sign_getplaced(bufnr, { group = ns, id = lnum })[1].signs
-   local ret = {}
-   for _, s in ipairs(placed) do
-      ret[s.id] = s.name
-   end
-   return ret
+   local s = (placed[bufnr] or {})[lnum]
+   return s and s.type
 end
 
 return M

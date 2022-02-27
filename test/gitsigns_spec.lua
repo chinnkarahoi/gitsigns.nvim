@@ -94,7 +94,7 @@ describe('gitsigns', function()
 
     check {
       status = {head='', added=18, changed=0, removed=0},
-      signs = {added=8}
+      signs = {added=18}
     }
 
     git{"add", test_file}
