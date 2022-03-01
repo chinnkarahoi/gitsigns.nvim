@@ -1,5 +1,5 @@
-local void = require('plenary.async.async').void
-local scheduler = require('plenary.async.util').scheduler
+local void = require('gitsigns.async').void
+local scheduler = require('gitsigns.async').scheduler
 
 local Status = require("gitsigns.status")
 local git = require('gitsigns.git')
@@ -563,7 +563,7 @@ M.setup = void(function(cfg)
    require('gitsigns.current_line_blame').setup()
 
    scheduler()
-   M._update_cwd_head()
+   _update_cwd_head()
    vim.cmd([[autocmd gitsigns DirChanged * lua _G.package.loaded.gitsigns._update_cwd_head()]])
 end)
 
