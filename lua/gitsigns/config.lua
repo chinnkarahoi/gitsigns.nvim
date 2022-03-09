@@ -435,6 +435,7 @@ M.schema = {
          virt_text = true,
          virt_text_pos = 'eol',
          delay = 1000,
+         insert_mode = true,
       },
       description = [[
       Options for the current line blame annotation.

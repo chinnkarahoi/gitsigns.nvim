@@ -207,15 +207,23 @@ M.setup = function()
    end
 
    if config.current_line_blame then
-      nvim.autocmd(
-      { 'FocusGained', 'BufEnter', 'CursorMoved', 'CursorMovedI' },
-      { group = 'gitsigns_blame', callback = function() update() end })
+      if config.current_line_blame_opts.insert_mode then
+         nvim.autocmd(
+         { 'FocusGained', 'BufEnter', 'CursorMoved', 'CursorMovedI' },
+         { group = 'gitsigns_blame', callback = function() update() end })
 
+         nvim.autocmd(
+         { 'FocusLost', 'BufLeave' },
+         { group = 'gitsigns_blame', callback = function() reset() end })
+      else
+         nvim.autocmd(
+         { 'FocusGained', 'BufEnter', 'CursorMoved', 'InsertLeave' },
+         { group = 'gitsigns_blame', callback = function() update() end })
 
-      nvim.autocmd(
-      { 'FocusLost', 'BufLeave' },
-      { group = 'gitsigns_blame', callback = function() reset() end })
-
+         nvim.autocmd(
+         { 'FocusLost', 'BufLeave', 'InsertEnter' },
+         { group = 'gitsigns_blame', callback = function() reset() end })
+      end
 
       update()
    end

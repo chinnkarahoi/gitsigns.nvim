@@ -56,6 +56,7 @@ of the default settings:
         virt_text_pos = 'eol', -- 'eol' | 'overlay' | 'right_align'
         delay = 1000,
         ignore_whitespace = false,
+        insert_mode = true,
       },
       current_line_blame_formatter = '<author>, <author_time:%Y-%m-%d> - <summary>',
       sign_priority = 6,
@@ -635,6 +636,7 @@ current_line_blame_opts              *gitsigns-config-current_line_blame_opts*
           virt_text = true,
           virt_text_pos = 'eol',
           delay = 1000
+          insert_mode = true,
         }
 <
       Options for the current line blame annotation.
